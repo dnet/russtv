@@ -3,6 +3,7 @@ extern crate byteorder;
 fn main() {
     use std::env;
     use std::io;
+    use std::io::{BufReader, BufWriter};
     use std::f64::consts::PI;
     use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 
@@ -21,9 +22,9 @@ fn main() {
     let mut tx: i32;
 
     let stdin = io::stdin();
-    let mut sil = stdin.lock();
+    let mut sil = BufReader::new(stdin.lock());
     let stdout = io::stdout();
-    let mut sol = stdout.lock();
+    let mut sol = BufWriter::new(stdout.lock());
 
     loop {
         match sil.read_f32::<LittleEndian>() {
