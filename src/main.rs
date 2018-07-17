@@ -1,9 +1,10 @@
+extern crate byteorder;
+
 fn main() {
     use std::env;
     use std::io;
-    use std::io::Read;
-    use std::io::Write;
     use std::f64::consts::PI;
+    use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 
     let args: Vec<String> = env::args().collect();
     if args.len() < 2 {
@@ -23,27 +24,24 @@ fn main() {
     let mut sil = stdin.lock();
     let stdout = io::stdout();
     let mut sol = stdout.lock();
-    let mut buffer = [0; 4];
 
     loop {
-        match sil.read_exact(&mut buffer) {
-            Ok(_v) => {}
+        match sil.read_f32::<LittleEndian>() {
+            Ok(freq) => {
+                let msec = sil.read_f32::<LittleEndian>().unwrap();
+
+                samples += spms * msec as f64;
+                tx = samples as i32;
+                let freq_factor = freq as f64 * factor;
+                for sample in 0 .. tx {
+                    let output: f32 = (sample as f64 * freq_factor + offset).sin() as f32;
+                    sol.write_f32::<LittleEndian>(output).unwrap();
+                }
+
+                offset += (tx + 1) as f64 * freq_factor;
+                samples -= tx as f64;
+            }
             Err(_e) => { return; }
         }
-        let freq: f32 = unsafe { std::mem::transmute(buffer) };
-        sil.read_exact(&mut buffer).unwrap();
-        let msec: f32 = unsafe { std::mem::transmute(buffer) };
-
-        samples += spms * msec as f64;
-        tx = samples as i32;
-        let freq_factor = freq as f64 * factor;
-        for sample in 0 .. tx {
-            let output: f32 = (sample as f64 * freq_factor + offset).sin() as f32;
-            buffer = unsafe { std::mem::transmute(output) };
-            sol.write_all(&buffer).unwrap();
-        }
-
-        offset += (tx + 1) as f64 * freq_factor;
-        samples -= tx as f64;
     }
 }
