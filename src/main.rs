@@ -27,22 +27,19 @@ fn main() {
     let mut sol = BufWriter::new(stdout.lock());
 
     loop {
-        match sil.read_f32::<LittleEndian>() {
-            Ok(freq) => {
-                let msec = sil.read_f32::<LittleEndian>().unwrap();
+        let freq = sil.read_f32::<LittleEndian>();
+        if ! freq.is_ok() { return; }
+        let msec = sil.read_f32::<LittleEndian>().unwrap();
 
-                samples += spms * msec as f64;
-                tx = samples as i32;
-                let freq_factor = freq as f64 * factor;
-                for sample in 0 .. tx {
-                    let output: f32 = (sample as f64 * freq_factor + offset).sin() as f32;
-                    sol.write_f32::<LittleEndian>(output).unwrap();
-                }
-
-                offset += (tx + 1) as f64 * freq_factor;
-                samples -= tx as f64;
-            }
-            Err(_e) => { return; }
+        samples += spms * msec as f64;
+        tx = samples as i32;
+        let freq_factor = freq.unwrap() as f64 * factor;
+        for sample in 0 .. tx {
+            let output: f32 = (sample as f64 * freq_factor + offset).sin() as f32;
+            sol.write_f32::<LittleEndian>(output).unwrap();
         }
+
+        offset += (tx + 1) as f64 * freq_factor;
+        samples -= tx as f64;
     }
 }
