@@ -1,12 +1,12 @@
 extern crate byteorder;
 
-fn main() {
-    use std::env;
-    use std::io;
-    use std::io::{BufReader, BufWriter};
-    use std::f64::consts::PI;
-    use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
+use std::env;
+use std::io;
+use std::io::{BufReader, BufWriter};
+use std::f64::consts::PI;
+use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 
+fn main() {
     let args: Vec<String> = env::args().collect();
     if args.len() < 2 {
         println!("Usage: {} <samples per second>", args[0]);
