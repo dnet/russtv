@@ -13,7 +13,7 @@ fn main() {
         return;
     }
 
-    let samples_per_second: f64 = args[1].parse::<f64>().unwrap();
+    let samples_per_second: f64 = args[1].parse::<f64>().expect("couldn't read samples per second parameter");
 
     let spms = samples_per_second / 1000.0;
     let mut offset = 0.0;
@@ -32,7 +32,7 @@ fn main() {
         let freq_factor = freq as f64 * factor;
         for sample in 0 .. tx {
             let output: f32 = (sample as f64 * freq_factor + offset).sin() as f32;
-            sol.write_f32::<LittleEndian>(output).unwrap();
+            sol.write_f32::<LittleEndian>(output).expect("couldn't write float sample");
         }
 
         offset += (tx + 1) as f64 * freq_factor;
@@ -59,7 +59,7 @@ impl<'a> Iterator for DualFloatTupleStdin<'a> {
                 io::ErrorKind::UnexpectedEof => None,
                 _ => panic!("Can't read frequency: {}", e),
             }
-            Ok(freq) => Some((freq, self.sil.read_f32::<LittleEndian>().unwrap())),
+            Ok(freq) => Some((freq, self.sil.read_f32::<LittleEndian>().expect("couldn't read duration"))),
         }
     }
 }
