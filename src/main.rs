@@ -22,18 +22,14 @@ fn main() {
     let mut tx: i32;
 
     let stdin = io::stdin();
-    let mut sil = BufReader::new(stdin.lock());
+    let mut src = DualFloatTupleStdin::new(BufReader::new(stdin.lock()));
     let stdout = io::stdout();
     let mut sol = BufWriter::new(stdout.lock());
 
-    loop {
-        let freq = sil.read_f32::<LittleEndian>();
-        if ! freq.is_ok() { return; }
-        let msec = sil.read_f32::<LittleEndian>().unwrap();
-
+    for (freq, msec) in & mut src {
         samples += spms * msec as f64;
         tx = samples as i32;
-        let freq_factor = freq.unwrap() as f64 * factor;
+        let freq_factor = freq as f64 * factor;
         for sample in 0 .. tx {
             let output: f32 = (sample as f64 * freq_factor + offset).sin() as f32;
             sol.write_f32::<LittleEndian>(output).unwrap();
@@ -41,5 +37,29 @@ fn main() {
 
         offset += (tx + 1) as f64 * freq_factor;
         samples -= tx as f64;
+    }
+}
+
+struct DualFloatTupleStdin<'a> {
+    sil: BufReader<io::StdinLock<'a>>,
+}
+
+impl<'a> DualFloatTupleStdin<'a> {
+    fn new(sil: BufReader<io::StdinLock<'a>>) -> DualFloatTupleStdin<'a> {
+        DualFloatTupleStdin { sil }
+    }
+}
+
+impl<'a> Iterator for DualFloatTupleStdin<'a> {
+    type Item = (f32, f32);
+
+    fn next(&mut self) -> Option<(f32, f32)> {
+        match self.sil.read_f32::<LittleEndian>() {
+            Err(e) => match e.kind() {
+                io::ErrorKind::UnexpectedEof => None,
+                _ => panic!("Can't read frequency: {}", e),
+            }
+            Ok(freq) => Some((freq, self.sil.read_f32::<LittleEndian>().unwrap())),
+        }
     }
 }
