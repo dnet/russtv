@@ -26,7 +26,7 @@ fn main() {
     let stdout = io::stdout();
     let mut sol = BufWriter::new(stdout.lock());
 
-    for (freq, msec) in & mut src {
+    for (freq, msec) in &mut src {
         samples += spms * msec as f64;
         tx = samples as i32;
         let freq_factor = freq as f64 * factor;
