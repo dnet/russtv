@@ -15,29 +15,12 @@ fn main() {
 
     let samples_per_second: f64 = args[1].parse::<f64>().expect("couldn't read samples per second parameter");
 
-    let spms = samples_per_second / 1000.0;
-    let mut offset = 0.0;
-    let factor = 2.0 * PI / samples_per_second;
-    let mut samples = 0.0;
-    let mut tx: i32;
-
     let stdin = io::stdin();
-    let mut src = DualFloatTupleStdin::new(BufReader::new(stdin.lock()));
+    let src = DualFloatTupleStdin::new(BufReader::new(stdin.lock()));
     let stdout = io::stdout();
     let mut sol = BufWriter::new(stdout.lock());
 
-    for (freq, msec) in &mut src {
-        samples += spms * msec as f64;
-        tx = samples as i32;
-        let freq_factor = freq as f64 * factor;
-        for sample in 0 .. tx {
-            let output: f32 = (sample as f64 * freq_factor + offset).sin() as f32;
-            sol.write_f32::<LittleEndian>(output).expect("couldn't write float sample");
-        }
-
-        offset += (tx + 1) as f64 * freq_factor;
-        samples -= tx as f64;
-    }
+    gen_samples(src, samples_per_second, |s| sol.write_f32::<LittleEndian>(s));
 }
 
 struct DualFloatTupleStdin<'a> {
@@ -61,5 +44,28 @@ impl<'a> Iterator for DualFloatTupleStdin<'a> {
             }
             Ok(freq) => Some((freq, self.sil.read_f32::<LittleEndian>().expect("couldn't read duration"))),
         }
+    }
+}
+
+fn gen_samples<I, C>(src: I, samples_per_second: f64, mut consumer: C) where
+        I: Iterator<Item = (f32, f32)>,
+        C: FnMut(f32) -> io::Result<()> {
+    let spms = samples_per_second / 1000.0;
+    let mut offset = 0.0;
+    let factor = 2.0 * PI / samples_per_second;
+    let mut samples = 0.0;
+    let mut tx: i32;
+
+    for (freq, msec) in src {
+        samples += spms * msec as f64;
+        tx = samples as i32;
+        let freq_factor = freq as f64 * factor;
+        for sample in 0 .. tx {
+            let output: f32 = (sample as f64 * freq_factor + offset).sin() as f32;
+            consumer(output).expect("couldn't write float sample");
+        }
+
+        offset += (tx + 1) as f64 * freq_factor;
+        samples -= tx as f64;
     }
 }
