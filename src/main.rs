@@ -1,15 +1,17 @@
 extern crate byteorder;
+extern crate image;
 
 use std::env;
 use std::io;
 use std::io::{BufReader, BufWriter};
 use std::f64::consts::PI;
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
+use image::DynamicImage;
 
 fn main() {
     let args: Vec<String> = env::args().collect();
     if args.len() < 3 {
-        println!("Usage: {} <samples per second> <mode>", args[0]);
+        println!("Usage: {} <samples per second> <source>", args[0]);
         return;
     }
 
@@ -24,21 +26,109 @@ fn main() {
             sg.consume(f, d)
         }
     } else {
-        gen_freq_bits(true, |f, d| sg.consume(f, d));
+        let pic = image::open(&args[2]).unwrap();
+        let img = Box::new(GrayscaleSstv::new(SstvModes::Robot24BW, pic));
+        gen_freq_bits(true, |f, d| sg.consume(f, d), img);
     }
 }
 
-trait SstvMode {
-    fn vis_code() -> u8;
-    fn gen_image_tuples() -> Iterator<Item = (f32, f32)>;
+trait SstvMode<C> {
+    fn vis_code(&self) -> u8;
+    fn gen_image_tuples(&self, consumer: C) -> ();
 }
 
-fn gen_freq_bits<C>(vox_enabled: bool, mut consumer: C) where C: FnMut(f32, f32) {
+enum SstvModes {
+    Robot8BW, Robot24BW,
+}
+
+struct GrayscaleSstv {
+    vis_code: u8,
+    width: u32,
+    height: u32,
+    scan: u8,
+    pic: DynamicImage,
+}
+
+impl<C: FnMut(f32, f32)> SstvMode<C> for GrayscaleSstv {
+    fn vis_code(&self) -> u8 {
+        self.vis_code
+    }
+
+    fn gen_image_tuples(&self, mut consumer: C) {
+        let img = self.pic.to_luma();
+        if img.width() < self.width {
+            panic!("Image width is smaller than required by selected mode");
+        }
+        if img.height() < self.height {
+            panic!("Image height is smaller than required by selected mode");
+        }
+        let msec_pixel = ((self.scan as f64) / (self.width as f64)) as f32;
+        for line in 0..self.height {
+            consumer(FREQ_SYNC, 7.0);
+            for col in 0..self.width {
+                let pixel = img.get_pixel(col, line);
+                let freq_pixel = byte_to_freq(pixel.data[0]);
+                consumer(freq_pixel, msec_pixel);
+            }
+        }
+    }
+}
+
+fn byte_to_freq(value: u8) -> f32 {
+    FREQ_BLACK + FREQ_RANGE * (value as f32) / 255.0
+}
+
+impl GrayscaleSstv {
+    fn new(mode: SstvModes, pic: DynamicImage) -> GrayscaleSstv {
+        match mode {
+            SstvModes::Robot8BW => GrayscaleSstv { vis_code: 0x02, width: 160,
+                height: 120, scan: 60, pic },
+            SstvModes::Robot24BW => GrayscaleSstv { vis_code: 0x0A, width: 320,
+                height: 240, scan: 93, pic },
+            _ => panic!("invalid mode"),
+        }
+    }
+}
+
+const FREQ_VIS_BIT1: f32 = 1100.0;
+const FREQ_SYNC: f32 = 1200.0;
+const FREQ_VIS_BIT0: f32 = 1300.0;
+const FREQ_BLACK: f32 = 1500.0;
+const FREQ_VIS_START: f32 = 1900.0;
+const FREQ_WHITE: f32 = 2300.0;
+const FREQ_RANGE: f32 = FREQ_WHITE - FREQ_BLACK;
+const FREQ_FSKID_BIT1: f32 = 1900.0;
+const FREQ_FSKID_BIT0: f32 = 2100.0;
+
+const MSEC_VIS_START: f32 = 300.0;
+const MSEC_VIS_SYNC: f32 = 10.0;
+const MSEC_VIS_BIT: f32 = 30.0;
+const MSEC_FSKID_BIT: f32 = 22.0;
+
+fn gen_freq_bits<CNS>(vox_enabled: bool, mut consumer: CNS, mode: Box<SstvMode<CNS>>) where CNS: FnMut(f32, f32) {
     if vox_enabled {
         for freq in vec![1900.0, 1500.0, 1900.0, 1500.0, 2300.0, 1500.0, 2300.0, 1500.0] {
             consumer(freq, 100.0);
         }
     }
+    consumer(FREQ_VIS_START, MSEC_VIS_START);
+    consumer(FREQ_SYNC, MSEC_VIS_SYNC);
+    consumer(FREQ_VIS_START, MSEC_VIS_START);
+    consumer(FREQ_SYNC, MSEC_VIS_BIT);
+    let mut vis = mode.vis_code();
+    let mut num_ones = 0;
+    for _ in 0..7 {
+        let bit = vis & 1;
+        vis >>= 1;
+        num_ones += bit;
+        let bit_freq = match bit { 1 => FREQ_VIS_BIT1, 0 => FREQ_VIS_BIT0, _ => panic!("bit not 1/0") };
+        consumer(bit_freq, MSEC_VIS_BIT);
+    }
+    let parity_freq = match num_ones % 2 { 1 => FREQ_VIS_BIT1, 0 => FREQ_VIS_BIT0, _ => panic!("%2 not 1/0") };
+    consumer(parity_freq, MSEC_VIS_BIT);
+    consumer(FREQ_SYNC, MSEC_VIS_BIT);
+    mode.gen_image_tuples(consumer);
+    // TODO fskid
 }
 
 struct DualFloatTupleStdin<'a> {

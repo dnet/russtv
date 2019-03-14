@@ -5,3 +5,4 @@ authors = ["András Veres-Szentkirályi <vsza@vsza.hu>"]
 
 [dependencies]
 byteorder = "1"
+image = "*"
