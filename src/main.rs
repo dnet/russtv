@@ -107,8 +107,8 @@ const MSEC_FSKID_BIT: f32 = 22.0;
 
 fn gen_freq_bits<CNS>(vox_enabled: bool, mut consumer: CNS, mode: Box<SstvMode<CNS>>) where CNS: FnMut(f32, f32) {
     if vox_enabled {
-        for freq in vec![1900.0, 1500.0, 1900.0, 1500.0, 2300.0, 1500.0, 2300.0, 1500.0] {
-            consumer(freq, 100.0);
+        for freq in &[1900.0, 1500.0, 1900.0, 1500.0, 2300.0, 1500.0, 2300.0, 1500.0] {
+            consumer(*freq, 100.0);
         }
     }
     consumer(FREQ_VIS_START, MSEC_VIS_START);
