@@ -105,7 +105,7 @@ const MSEC_VIS_SYNC: f32 = 10.0;
 const MSEC_VIS_BIT: f32 = 30.0;
 const MSEC_FSKID_BIT: f32 = 22.0;
 
-fn gen_freq_bits<CNS>(vox_enabled: bool, mut consumer: CNS, mode: Box<SstvMode<CNS>>) where CNS: FnMut(f32, f32) {
+fn gen_freq_bits<CNS>(vox_enabled: bool, mut consumer: CNS, mode: Box<dyn SstvMode<CNS>>) where CNS: FnMut(f32, f32) {
     if vox_enabled {
         for freq in &[1900.0, 1500.0, 1900.0, 1500.0, 2300.0, 1500.0, 2300.0, 1500.0] {
             consumer(*freq, 100.0);
