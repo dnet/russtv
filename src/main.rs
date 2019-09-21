@@ -178,7 +178,7 @@ impl<C: FnMut(f32) -> io::Result<()>> SampleGenerator<C> {
     fn consume(&mut self, freq: f32, msec: f32) {
         self.samples += self.spms * msec as f64;
         let tx = self.samples as i32;
-        let freq_factor = freq as f64 * &self.factor;
+        let freq_factor = freq as f64 * self.factor;
         for sample in 0 .. tx {
             let output: f32 = (sample as f64 * freq_factor + self.offset).sin() as f32;
             (self.consumer)(output).expect("couldn't write float sample");
