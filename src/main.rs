@@ -148,7 +148,7 @@ impl<'a> Iterator for DualFloatTupleStdin<'a> {
         match self.sil.read_f32::<LittleEndian>() {
             Err(e) => match e.kind() {
                 io::ErrorKind::UnexpectedEof => None,
-                _ => panic!("Can't read frequency: {}", e),
+                _ => panic!("Can't read frequency: {e}"),
             }
             Ok(freq) => Some((freq, self.sil.read_f32::<LittleEndian>().expect("couldn't read duration"))),
         }

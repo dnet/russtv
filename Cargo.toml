@@ -2,6 +2,7 @@
 name = "russtv"
 version = "0.1.0"
 authors = ["András Veres-Szentkirályi <vsza@vsza.hu>"]
+edition = "2021"
 
 [dependencies]
 byteorder = "1"
